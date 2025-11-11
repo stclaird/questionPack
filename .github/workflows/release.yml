@@ -117,17 +117,40 @@ jobs:
 
             - name: Archive project files
               run: |
-                  # Create a zip archive of the project (excluding .git and other unnecessary files)
-                  zip -r "questionPack-${{ steps.vars.outputs.tag_name }}.zip" . \
-                    -x ".git/*" ".github/*" "*.zip" "*.tar.gz"
+                  # Create temporary directory for archives to avoid conflicts
+                  mkdir -p ./archives
 
-                  # Create a tar.gz archive as well
-                  tar -czf "questionPack-${{ steps.vars.outputs.tag_name }}.tar.gz" \
-                    --exclude=".git" --exclude=".github" --exclude="*.zip" --exclude="*.tar.gz" .
+                  # Create file list excluding problematic paths
+                  find . -type f \
+                    ! -path "./.git/*" \
+                    ! -path "./.github/*" \
+                    ! -path "./archives/*" \
+                    ! -name "*.zip" \
+                    ! -name "*.tar.gz" \
+                    ! -name "release_notes.md" > ./archives/file_list.txt
 
-                  # Create copies with "latest" naming for easy direct downloads
+                  # Create zip archive using file list
+                  zip -r "./archives/questionPack-${{ steps.vars.outputs.tag_name }}.zip" . \
+                    -x ".git/*" ".github/*" "archives/*" "*.zip" "*.tar.gz" "release_notes.md"
+
+                  # Create tar.gz archive from file list to avoid the "file changed" error
+                  tar -czf "./archives/questionPack-${{ steps.vars.outputs.tag_name }}.tar.gz" \
+                    --exclude=".git" \
+                    --exclude=".github" \
+                    --exclude="archives" \
+                    --exclude="*.zip" \
+                    --exclude="*.tar.gz" \
+                    --exclude="release_notes.md" \
+                    .
+
+                  # Move archives to root and create latest copies
+                  mv "./archives/questionPack-${{ steps.vars.outputs.tag_name }}.zip" .
+                  mv "./archives/questionPack-${{ steps.vars.outputs.tag_name }}.tar.gz" .
                   cp "questionPack-${{ steps.vars.outputs.tag_name }}.zip" "questionPack-latest.zip"
                   cp "questionPack-${{ steps.vars.outputs.tag_name }}.tar.gz" "questionPack-latest.tar.gz"
+
+                  # Clean up temporary directory
+                  rm -rf ./archives
 
             - name: Upload Release Assets
               uses: actions/upload-release-asset@v1
